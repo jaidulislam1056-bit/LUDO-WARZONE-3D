@@ -1,0 +1,6 @@
+{
+  "name": "LUDO WARZONE 3D",
+  "description": "Roll The Dice. Load Your Gun. Rule The Arena! A tactical 3D Ludo, military shooter, and Battle Royale game.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

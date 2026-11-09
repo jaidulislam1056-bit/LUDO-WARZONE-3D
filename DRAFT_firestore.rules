@@ -1,0 +1,148 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Reusable Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBoundedStringArray(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 64));
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidPlayerProfile(data) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'xp', 'level', 'coins', 'kills', 'deaths',
+        'wins', 'matchesPlayed', 'selectedTeam', 'selectedSkin',
+        'selectedWeaponSkin', 'unlockedSkins', 'achievements',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'displayName', 'xp', 'level', 'coins', 'kills', 'deaths',
+        'wins', 'matchesPlayed', 'selectedTeam', 'selectedSkin',
+        'selectedWeaponSkin', 'unlockedSkins', 'achievements',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+      data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.uid == request.auth.uid &&
+      data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+      data.xp is int && data.xp >= 0 && data.xp <= 100000000 &&
+      data.level is int && data.level >= 1 && data.level <= 500 &&
+      data.coins is int && data.coins >= 0 && data.coins <= 100000000 &&
+      data.kills is int && data.kills >= 0 && data.kills <= 1000000 &&
+      data.deaths is int && data.deaths >= 0 && data.deaths <= 1000000 &&
+      data.wins is int && data.wins >= 0 && data.wins <= 1000000 &&
+      data.matchesPlayed is int && data.matchesPlayed >= 0 && data.matchesPlayed <= 1000000 &&
+      data.selectedTeam is string && data.selectedTeam.size() <= 16 &&
+      (data.selectedTeam == 'red' || data.selectedTeam == 'blue' || data.selectedTeam == 'green' || data.selectedTeam == 'yellow') &&
+      data.selectedSkin is string && data.selectedSkin.size() >= 1 && data.selectedSkin.size() <= 32 &&
+      data.selectedWeaponSkin is string && data.selectedWeaponSkin.size() >= 1 && data.selectedWeaponSkin.size() <= 32 &&
+      isBoundedStringArray(data.unlockedSkins, 20) &&
+      isBoundedStringArray(data.achievements, 20) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidMatchRecord(data) {
+      return data.keys().hasAll([
+        'uid', 'mode', 'team', 'result', 'kills', 'deaths',
+        'coinsEarned', 'xpEarned', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'mode', 'team', 'result', 'kills', 'deaths',
+        'coinsEarned', 'xpEarned', 'createdAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+      data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.uid == request.auth.uid &&
+      data.mode is string && data.mode.size() <= 24 &&
+      (data.mode == 'classic' || data.mode == 'battle_royale' || data.mode == 'tdm' || data.mode == 'zombie' || data.mode == 'survival') &&
+      data.team is string && data.team.size() <= 16 &&
+      (data.team == 'red' || data.team == 'blue' || data.team == 'green' || data.team == 'yellow') &&
+      data.result is string && data.result.size() <= 16 &&
+      (data.result == 'victory' || data.result == 'defeat') &&
+      data.kills is int && data.kills >= 0 && data.kills <= 500 &&
+      data.deaths is int && data.deaths >= 0 && data.deaths <= 500 &&
+      data.coinsEarned is int && data.coinsEarned >= 0 && data.coinsEarned <= 100000 &&
+      data.xpEarned is int && data.xpEarned >= 0 && data.xpEarned <= 100000 &&
+      data.createdAt is timestamp;
+    }
+
+    // 4. Player Profiles Collection
+    match /players/{playerId} {
+      allow get: if isOwner(playerId) && isValidId(playerId);
+
+      allow create: if isOwner(playerId) &&
+        isValidId(playerId) &&
+        isValidPlayerProfile(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isOwner(playerId) &&
+        isValidId(playerId) &&
+        isValidPlayerProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: Update Loadout / Customization / Shop Purchase
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'coins', 'selectedTeam', 'selectedSkin',
+            'selectedWeaponSkin', 'unlockedSkins', 'achievements', 'updatedAt'
+          ]) ||
+          // Action 2: Post-Match Progression & Stats Sync
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'xp', 'level', 'coins', 'kills', 'deaths', 'wins',
+            'matchesPlayed', 'achievements', 'updatedAt'
+          ])
+        );
+
+      allow delete: if false;
+
+      // 5. Player Match History Subcollection (Master Gate enforced)
+      match /matches/{matchId} {
+        allow get: if isOwner(playerId) &&
+          isValidId(playerId) &&
+          isValidId(matchId) &&
+          existing().uid == request.auth.uid;
+
+        allow list: if isOwner(playerId) &&
+          existing().uid == request.auth.uid;
+
+        allow create: if isOwner(playerId) &&
+          isValidId(playerId) &&
+          isValidId(matchId) &&
+          isValidMatchRecord(incoming()) &&
+          incoming().createdAt == request.time &&
+          exists(/databases/$(database)/documents/players/$(playerId)) &&
+          get(/databases/$(database)/documents/players/$(playerId)).data.uid == request.auth.uid;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

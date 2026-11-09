@@ -1,0 +1,176 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Persistent player account profile, progression, inventory, and career combat statistics.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public display name in Ludo Warzone 3D",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "xp": {
+          "type": "integer",
+          "description": "Total experience points earned"
+        },
+        "level": {
+          "type": "integer",
+          "description": "Current player military rank level"
+        },
+        "coins": {
+          "type": "integer",
+          "description": "Virtual warzone coins balance"
+        },
+        "kills": {
+          "type": "integer",
+          "description": "Total career eliminations"
+        },
+        "deaths": {
+          "type": "integer",
+          "description": "Total career deaths"
+        },
+        "wins": {
+          "type": "integer",
+          "description": "Total career victories"
+        },
+        "matchesPlayed": {
+          "type": "integer",
+          "description": "Total matches played"
+        },
+        "selectedTeam": {
+          "type": "string",
+          "description": "Preferred team color",
+          "enum": ["red", "blue", "green", "yellow"]
+        },
+        "selectedSkin": {
+          "type": "string",
+          "description": "Equipped soldier uniform skin ID",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "selectedWeaponSkin": {
+          "type": "string",
+          "description": "Equipped weapon camo skin ID",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "unlockedSkins": {
+          "type": "array",
+          "description": "List of unlocked soldier and weapon skin IDs (max 20)"
+        },
+        "achievements": {
+          "type": "array",
+          "description": "List of unlocked achievement IDs (max 20)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation server timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Profile last update server timestamp"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "xp",
+        "level",
+        "coins",
+        "kills",
+        "deaths",
+        "wins",
+        "matchesPlayed",
+        "selectedTeam",
+        "selectedSkin",
+        "selectedWeaponSkin",
+        "unlockedSkins",
+        "achievements",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MatchRecord": {
+      "title": "MatchRecord",
+      "description": "Completed match history record for a player.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner player UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Game mode played",
+          "enum": ["classic", "battle_royale", "tdm", "zombie", "survival"]
+        },
+        "team": {
+          "type": "string",
+          "description": "Player team color",
+          "enum": ["red", "blue", "green", "yellow"]
+        },
+        "result": {
+          "type": "string",
+          "description": "Match outcome",
+          "enum": ["victory", "defeat"]
+        },
+        "kills": {
+          "type": "integer",
+          "description": "Eliminations in match"
+        },
+        "deaths": {
+          "type": "integer",
+          "description": "Deaths in match"
+        },
+        "coinsEarned": {
+          "type": "integer",
+          "description": "Virtual coins earned"
+        },
+        "xpEarned": {
+          "type": "integer",
+          "description": "XP earned"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Match completion server timestamp"
+        }
+      },
+      "required": [
+        "uid",
+        "mode",
+        "team",
+        "result",
+        "kills",
+        "deaths",
+        "coinsEarned",
+        "xpEarned",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Stores individual player progression, loadout, and stats."
+    },
+    "/players/{playerId}/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/MatchRecord" },
+      "description": "Stores match history entries for a specific player."
+    }
+  }
+}
