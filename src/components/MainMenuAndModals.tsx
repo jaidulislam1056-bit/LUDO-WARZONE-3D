@@ -144,6 +144,10 @@ export function MainMenuAndModals() {
     mpError,
     skySquadSize,
     setSkySquadSize,
+    matchTeamCount,
+    setMatchTeamCount,
+    isPartnerMode,
+    setIsPartnerMode,
     setActiveModal,
     setGameMode,
     setAIDifficulty,
@@ -172,6 +176,7 @@ export function MainMenuAndModals() {
   const [multiplayerTab, setMultiplayerTab] = useState<'online' | 'wifi'>('online');
   const [wifiPinInput, setWifiPinInput] = useState('');
   const [localWifiHost, setLocalWifiHost] = useState<string | null>(null);
+  const [itemsCategoryTab, setItemsCategoryTab] = useState<'all' | 'outfit' | 'weapon' | 'emote'>('all');
 
   if (screen !== 'menu' && activeModal === 'none') return null;
 
@@ -423,6 +428,86 @@ export function MainMenuAndModals() {
                   </div>
                 )}
 
+                {/* Team Formation & 2v2 Partner Mode Selector */}
+                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-amber-400" />
+                        TEAMS & ALLIANCE FORMATION (দলের সংখ্যা ও জোড়া খেলা)
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        ২ দল (Duo), ৩ দল, ৪ দল অথবা ২v২ জোড়া জোট (Partner Battle) নির্বাচন করুন
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase font-mono font-bold">
+                      {isPartnerMode ? '2v2 Duo Alliance' : `${matchTeamCount} Teams Active`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                    <button
+                      onClick={() => {
+                        setMatchTeamCount(2);
+                        setIsPartnerMode(false);
+                      }}
+                      className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        matchTeamCount === 2 && !isPartnerMode
+                          ? 'bg-amber-400/15 border-amber-400 text-white shadow-md'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-amber-400">2 Teams (Duo 1v1)</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">বোর্ডে শুধু ২ দল (লাল বনাম হলুদ)</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setMatchTeamCount(3);
+                        setIsPartnerMode(false);
+                      }}
+                      className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        matchTeamCount === 3 && !isPartnerMode
+                          ? 'bg-sky-400/15 border-sky-400 text-white shadow-md'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-sky-400">3 Teams (Tri-War)</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">বোর্ডে ৩ দল (৩ জন কমান্ডো গ্রুপ)</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setMatchTeamCount(4);
+                        setIsPartnerMode(false);
+                      }}
+                      className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        matchTeamCount === 4 && !isPartnerMode
+                          ? 'bg-emerald-400/15 border-emerald-400 text-white shadow-md'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-emerald-400">4 Teams (Squad 4-Way)</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">সব ৪টি দল যুদ্ধক্ষেত্রে মুখোমুখি</div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsPartnerMode(true);
+                        setMatchTeamCount(4);
+                      }}
+                      className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                        isPartnerMode
+                          ? 'bg-purple-500/20 border-purple-400 text-white shadow-md'
+                          : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold text-purple-400">2v2 Partner (জোড়া লড়াই)</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">Red+Yellow বনাম Blue+Green জোট</div>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <div className="text-sm font-bold text-white">Offline AI Difficulty</div>
@@ -449,11 +534,19 @@ export function MainMenuAndModals() {
 
                 <div className="flex justify-end">
                   <button
-                    onClick={() => startNewMatch({ mode: gameMode, isOnline: false })}
-                    className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm flex items-center gap-2 cursor-pointer"
+                    onClick={() =>
+                      startNewMatch({
+                        mode: gameMode,
+                        matchTeamCount,
+                        isPartnerMode,
+                        isOnline: false,
+                      })
+                    }
+                    className="px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm flex items-center gap-2 cursor-pointer shadow-lg active:scale-98 transition-all"
                   >
                     <Play className="w-4 h-4 fill-slate-950" />
-                    DEPLOY INTO {MODE_CARDS.find((m) => m.id === gameMode)?.name.toUpperCase()}
+                    DEPLOY INTO {MODE_CARDS.find((m) => m.id === gameMode)?.name.toUpperCase()} (
+                    {isPartnerMode ? '2v2 PARTNER' : `${matchTeamCount} TEAMS`})
                   </button>
                 </div>
               </>
@@ -617,62 +710,151 @@ export function MainMenuAndModals() {
               </div>
             )}
 
-            {/* 4. SHOP MODAL */}
+            {/* 4. SHOP & ARMORY MODAL */}
             {activeModal === 'shop' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between bg-slate-900 p-3.5 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-300">
-                    Earn Virtual Coins by eliminating enemies, completing Daily Missions, and winning matches.
-                  </span>
-                  <span className="text-sm font-mono font-bold text-amber-400 tabular-nums">
-                    Balance: {profile.coins} COINS
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900 p-3.5 rounded-xl border border-slate-800">
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4 text-amber-400" />
+                      WARZONE ARMORY & MILITARY ITEMS
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      ম্যাচ খেলে ও মিশন সম্পন্ন করে অর্জিত XP এবং কয়েন দিয়ে নতুন পোশাক, গান স্কিন ও ইমোট আনলক করুন।
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-mono font-bold text-sky-400 bg-sky-950/60 border border-sky-500/30 px-2.5 py-1 rounded-lg">
+                      {profile.xp} XP (Lv.{profile.level})
+                    </span>
+                    <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                      {profile.coins} COINS
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {SHOP_SKINS.map((skin) => {
-                    const unlocked = profile.unlockedSkins.includes(skin.id);
-                    const equipped =
-                      profile.selectedSkin === skin.id || profile.selectedWeaponSkin === skin.id;
+                {/* Category Filter Tabs */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2.5">
+                  {(['all', 'outfit', 'weapon', 'emote'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setItemsCategoryTab(tab)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        itemsCategoryTab === tab
+                          ? 'bg-amber-400 text-slate-950 shadow-md font-extrabold'
+                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      {tab === 'all' && 'All Items (সব)'}
+                      {tab === 'outfit' && 'Outfits (পোশাক)'}
+                      {tab === 'weapon' && 'Firearms (অস্ত্র)'}
+                      {tab === 'emote' && 'Emotes (ইমোট ও নাচ)'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Items Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                  {SHOP_SKINS.filter((skin) => {
+                    if (itemsCategoryTab === 'all') return true;
+                    if (itemsCategoryTab === 'outfit')
+                      return skin.category === 'outfit' || skin.category === 'character';
+                    return skin.category === itemsCategoryTab;
+                  }).map((skin) => {
+                    const isOutfit = skin.category === 'outfit' || skin.category === 'character';
+                    const isEmote = skin.category === 'emote';
+
+                    const unlocked = isOutfit
+                      ? (profile.unlockedOutfits || ['skin_standard']).includes(skin.id) ||
+                        profile.unlockedSkins.includes(skin.id)
+                      : isEmote
+                        ? (profile.unlockedEmotes || ['emote_military_salute']).includes(skin.id)
+                        : profile.unlockedSkins.includes(skin.id);
+
+                    const equipped = isOutfit
+                      ? (profile.selectedOutfit || profile.selectedSkin) === skin.id
+                      : isEmote
+                        ? (profile.selectedEmote || 'emote_military_salute') === skin.id
+                        : profile.selectedWeaponSkin === skin.id;
+
+                    const reqXp = skin.requiredXp || 0;
+                    const meetsXp = profile.xp >= reqXp;
+
                     return (
                       <div
                         key={skin.id}
-                        className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between"
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                          equipped
+                            ? 'bg-emerald-950/20 border-emerald-500/40'
+                            : 'bg-slate-900 border-slate-800'
+                        }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-white">{skin.name}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs sm:text-sm font-bold text-white truncate">
+                              {skin.name}
+                            </span>
                             <span
-                              className="w-3.5 h-3.5 rounded-sm"
+                              className="w-3.5 h-3.5 rounded-sm shrink-0 shadow"
                               style={{ backgroundColor: skin.accentHex }}
                             />
                           </div>
-                          <div className="text-[11px] text-slate-400 uppercase mt-0.5">
-                            {skin.category} skin
+
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                              {skin.category}
+                            </span>
+                            {reqXp > 0 && (
+                              <span
+                                className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                  meetsXp
+                                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
+                                    : 'bg-slate-950 text-slate-400 border-slate-800'
+                                }`}
+                              >
+                                {meetsXp ? '✓ ' : ''}{reqXp} XP Req
+                              </span>
+                            )}
+                            {skin.priceCoins > 0 ? (
+                              <span className="text-[10px] font-mono font-bold text-amber-400">
+                                {skin.priceCoins} COINS
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-emerald-400">FREE</span>
+                            )}
                           </div>
-                          <p className="text-xs text-slate-300 mt-2">{skin.description}</p>
+
+                          <p className="text-[11px] text-slate-300 mt-2 leading-relaxed">
+                            {skin.description}
+                          </p>
                         </div>
 
                         <button
                           onClick={() =>
-                            buyOrEquipSkin(skin.id, skin.category, skin.priceCoins)
+                            buyOrEquipSkin(skin.id, skin.category, skin.priceCoins, reqXp)
                           }
-                          disabled={!unlocked && profile.coins < skin.priceCoins}
-                          className={`mt-4 w-full py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                          disabled={!unlocked && !meetsXp && profile.coins < skin.priceCoins}
+                          className={`mt-3.5 w-full py-2 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-98 ${
                             equipped
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-extrabold'
                               : unlocked
-                                ? 'bg-sky-500 hover:bg-sky-400 text-slate-950'
-                                : profile.coins >= skin.priceCoins
-                                  ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
-                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md font-extrabold'
+                                : meetsXp
+                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold shadow-md'
+                                  : profile.coins >= skin.priceCoins
+                                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold shadow-md'
+                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50'
                           }`}
                         >
                           {equipped
-                            ? 'EQUIPPED'
+                            ? 'EQUIPPED (এক্টিভ)'
                             : unlocked
-                              ? 'EQUIP SKIN'
-                              : `UNLOCK (${skin.priceCoins} COINS)`}
+                              ? 'EQUIP (ব্যবহার করুন)'
+                              : meetsXp
+                                ? 'CLAIM WITH XP (আনলক)'
+                                : profile.coins >= skin.priceCoins
+                                  ? `UNLOCK (${skin.priceCoins} COINS)`
+                                  : `LOCKED (${reqXp} XP / ${skin.priceCoins} COINS)`}
                         </button>
                       </div>
                     );
@@ -1013,17 +1195,19 @@ export function MainMenuAndModals() {
                         <button
                           onClick={async () => {
                             setMpError(null);
-                            const wifiCode = `WIFI-${Math.floor(1000 + Math.random() * 9000)}`;
+                            const pin = String(Math.floor(1000 + Math.random() * 9000));
+                            const wifiCode = `WIFI-${pin}`;
                             setLocalWifiHost(wifiCode);
                             const ok = await multiplayerClient.createRoom(
                               `${profile.displayName} (WiFi Host)`,
                               gameMode,
                               playerTeam,
                               true,
+                              wifiCode,
                             );
-                            if (!ok) setMpError('Could not start WiFi session.');
+                            if (!ok) setMpError('Could not start WiFi session. Make sure server is reachable on this network.');
                           }}
-                          className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"
+                          className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
                         >
                           <Wifi className="w-4 h-4" />
                           Host Local WiFi Room
@@ -1038,11 +1222,11 @@ export function MainMenuAndModals() {
                             <h3 className="text-sm font-bold text-white">Join Local WiFi Host</h3>
                           </div>
                           <p className="text-xs text-slate-400 mt-1.5">
-                            Enter the 4-digit or 6-digit WiFi Room PIN displayed on your friend's screen.
+                            Enter the 4-digit PIN (e.g. 7412) or room code displayed on your friend's screen.
                           </p>
                           <input
                             type="text"
-                            placeholder="e.g. WIFI-7412 or 7412"
+                            placeholder="e.g. 7412 or WIFI-7412"
                             value={wifiPinInput}
                             onChange={(e) => setWifiPinInput(e.target.value.toUpperCase())}
                             className="mt-2 w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-amber-400 uppercase tracking-widest focus:border-amber-400"
@@ -1053,12 +1237,12 @@ export function MainMenuAndModals() {
                           onClick={async () => {
                             if (!wifiPinInput.trim()) return;
                             setMpError(null);
-                            const cleanCode = wifiPinInput.startsWith('WIFI-')
-                              ? wifiPinInput
-                              : `WIFI-${wifiPinInput}`;
-                            await multiplayerClient.joinRoom(cleanCode, profile.displayName);
+                            const clean = wifiPinInput.trim().toUpperCase();
+                            const targetCode = clean.startsWith('WIFI-') ? clean : `WIFI-${clean}`;
+                            const ok = await multiplayerClient.joinRoom(targetCode, profile.displayName);
+                            if (!ok) setMpError(`WiFi PIN ${wifiPinInput} not found on this local network.`);
                           }}
-                          className="w-full py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md active:scale-95"
+                          className="w-full py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md active:scale-95 transition-all"
                         >
                           Join WiFi Match
                         </button>
@@ -1102,16 +1286,24 @@ export function MainMenuAndModals() {
                           <span className="text-2xl font-mono font-extrabold text-amber-400">
                             {mpRoom.code}
                           </span>
+                          {mpRoom.code.startsWith('WIFI-') && (
+                            <span className="px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono text-xs font-bold border border-amber-400/40">
+                              PIN: {mpRoom.code.replace('WIFI-', '')}
+                            </span>
+                          )}
                           <button
                             onClick={() => {
-                              navigator.clipboard?.writeText(mpRoom.code);
+                              const textToCopy = mpRoom.code.startsWith('WIFI-')
+                                ? mpRoom.code.replace('WIFI-', '')
+                                : mpRoom.code;
+                              navigator.clipboard?.writeText(textToCopy);
                               setCopiedCode(true);
                               setTimeout(() => setCopiedCode(false), 1500);
                             }}
                             className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 flex items-center gap-1 cursor-pointer"
                           >
                             {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                            {copiedCode ? 'Copied' : 'Copy'}
+                            {copiedCode ? 'Copied PIN' : 'Copy PIN'}
                           </button>
                         </div>
                       </div>

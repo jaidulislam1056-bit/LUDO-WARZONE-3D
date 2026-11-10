@@ -14,7 +14,8 @@ export type SoundEffectName =
   | 'victory'
   | 'defeat'
   | 'click'
-  | 'hit';
+  | 'hit'
+  | 'kill_voice';
 
 /**
  * Generates an in-memory 16-bit PCM WAV data URI so Howler.js (`Howl`) plays zero-latency,
@@ -267,6 +268,13 @@ class SoundManager {
       ],
       loop: true,
       volume: this.musicVolume,
+    });
+
+    // 15. Elimination Opponent Kill Voice Quote: "রাগ করলা?" (Rag Korla)
+    this.howls.kill_voice = new Howl({
+      src: ['/assets/aistudio/rag-korla_29ac6ab4.mp3'],
+      volume: Math.min(1.0, this.sfxVolume * 1.3),
+      html5: true,
     });
   }
 

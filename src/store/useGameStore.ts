@@ -10,10 +10,12 @@ import {
   ItemType,
   KillFeedEntry,
   MatchHistoryItem,
+  MatchTeamCount,
   MultiplayerRoomState,
   PlayerProfileData,
   ProjectileEffect,
   QualityPreset,
+  SkinItem,
   SkySquadSize,
   Soldier,
   SoldierAnimation,
@@ -33,6 +35,7 @@ import {
   ITEM_CATALOG,
   MAIN_TRACK_GRID,
   SAFE_TRACK_INDICES,
+  SHOP_SKINS,
   SKY_WARZONE_COVERS,
   SKY_WARZONE_DROP_ZONES,
   TEAM_COLORS,
@@ -59,13 +62,52 @@ export type ActiveModal =
 
 export type ScreenState = 'menu' | 'playing' | 'paused' | 'victory' | 'gameover';
 
+export const PARTNER_ALLIES: Record<TeamColor, TeamColor> = {
+  red: 'yellow',
+  yellow: 'red',
+  blue: 'green',
+  green: 'blue',
+};
+
+export function isAlliedTeam(t1: TeamColor, t2: TeamColor, isPartnerMode: boolean): boolean {
+  if (t1 === t2) return true;
+  if (isPartnerMode && PARTNER_ALLIES[t1] === t2) return true;
+  return false;
+}
+
 function buildInitialSoldiers(
   mode: GameMode,
   skySquadSize: SkySquadSize = 'squad',
+  matchTeamCount: MatchTeamCount = 4,
+  isPartnerMode = false,
+  playerTeam: TeamColor = 'red',
 ): Soldier[] {
   const list: Soldier[] = [];
-  const teamsToSpawn: TeamColor[] =
-    mode === 'tdm' ? ['red', 'blue'] : ['red', 'blue', 'green', 'yellow'];
+  let teamsToSpawn: TeamColor[] = ['red', 'blue', 'green', 'yellow'];
+
+  if (mode === 'tdm') {
+    teamsToSpawn = ['red', 'blue'];
+  } else if (isPartnerMode) {
+    // 2v2 Partner Alliance (Red+Yellow vs Blue+Green)
+    teamsToSpawn = ['red', 'yellow', 'blue', 'green'];
+  } else if (matchTeamCount === 2) {
+    // Exactly 2 Teams: player's team and diagonal opposing corner team
+    if (playerTeam === 'red' || playerTeam === 'yellow') {
+      teamsToSpawn = ['red', 'yellow'];
+    } else {
+      teamsToSpawn = ['blue', 'green'];
+    }
+  } else if (matchTeamCount === 3) {
+    // Exactly 3 Teams
+    if (playerTeam === 'yellow') {
+      teamsToSpawn = ['yellow', 'red', 'blue'];
+    } else {
+      teamsToSpawn = ['red', 'blue', 'green'];
+    }
+  } else {
+    // 4 Teams
+    teamsToSpawn = ['red', 'blue', 'green', 'yellow'];
+  }
 
   const maxSoldiersPerTeam =
     mode === 'sky_warzone'
@@ -186,17 +228,21 @@ function buildInitialInventory(): Record<ItemType, InventoryItem> {
 const DEFAULT_PROFILE: PlayerProfileData = {
   uid: 'guest_commander',
   displayName: 'Commander Red',
-  xp: 250,
-  level: 2,
-  coins: 750,
+  xp: 0,
+  level: 1,
+  coins: 500,
   kills: 0,
   deaths: 0,
   wins: 0,
   matchesPlayed: 0,
   selectedTeam: 'red',
   selectedSkin: 'skin_standard',
+  selectedOutfit: 'skin_standard',
   selectedWeaponSkin: 'weapon_classic_wood',
+  selectedEmote: 'emote_military_salute',
   unlockedSkins: ['skin_standard', 'weapon_classic_wood'],
+  unlockedOutfits: ['skin_standard'],
+  unlockedEmotes: ['emote_military_salute'],
   achievements: ['First Deployment'],
 };
 
@@ -227,6 +273,8 @@ interface GameStoreState {
   mpError: string | null;
 
   // Match State
+  matchTeamCount: MatchTeamCount;
+  isPartnerMode: boolean;
   playerTeam: TeamColor;
   humanTeams: TeamColor[];
   currentTurnTeam: TeamColor;
@@ -290,15 +338,27 @@ interface GameStoreState {
   setMatchHistory: (history: MatchHistoryItem[]) => void;
   updateDisplayName: (name: string) => void;
   selectTeamColor: (team: TeamColor) => void;
-  buyOrEquipSkin: (skinId: string, category: 'character' | 'weapon', price: number) => void;
+  buyOrEquipSkin: (
+    skinId: string,
+    category: 'character' | 'outfit' | 'weapon' | 'emote',
+    price: number,
+    requiredXp?: number,
+  ) => void;
   claimDailyMission: (missionId: string) => void;
   hasUnclaimedMatchBonus: boolean;
   claimMatchDeploymentBonus: () => void;
+
+  // Match Configuration & Actions
+  setMatchTeamCount: (count: MatchTeamCount) => void;
+  setIsPartnerMode: (isPartner: boolean) => void;
+  triggerEmote: () => void;
 
   // Match Lifecycle & Core Gameplay
   startNewMatch: (options?: {
     mode?: GameMode;
     skySquadSize?: SkySquadSize;
+    matchTeamCount?: MatchTeamCount;
+    isPartnerMode?: boolean;
     playerTeam?: TeamColor;
     humanTeams?: TeamColor[];
     isOnline?: boolean;
@@ -368,7 +428,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   hasUnclaimedMatchBonus: true,
   bannerMessage: 'Your Turn — Roll the Dice!',
 
-  soldiers: buildInitialSoldiers('classic'),
+  matchTeamCount: 4,
+  isPartnerMode: false,
+  soldiers: buildInitialSoldiers('classic', 'squad', 4, false, 'red'),
   selectedSoldierId: 'red_0',
   validMoveSoldierIds: [],
   targetableEnemyIds: [],
@@ -490,23 +552,115 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
   },
 
-  buyOrEquipSkin: (skinId, category, price) => {
+  setMatchTeamCount: (matchTeamCount) => {
+    soundManager.play('click');
+    set({ matchTeamCount });
+  },
+
+  setIsPartnerMode: (isPartnerMode) => {
+    soundManager.play('click');
+    set({ isPartnerMode });
+  },
+
+  triggerEmote: () => {
+    const state = get();
+    const activeSoldier =
+      state.soldiers.find((s) => s.id === state.selectedSoldierId) ||
+      state.soldiers.find((s) => s.team === state.playerTeam && s.state !== 'dead');
+    if (!activeSoldier) return;
+
+    const emoteId = state.profile.selectedEmote || 'emote_military_salute';
+    const emoteItem = SHOP_SKINS.find((s) => s.id === emoteId);
+    const anim: SoldierAnimation = emoteItem?.animation || 'victory';
+
+    soundManager.play('victory');
+
+    const floatText: FloatingDamageText = {
+      id: `emote_${Date.now()}`,
+      worldPos: {
+        x: activeSoldier.worldPos.x,
+        y: activeSoldier.worldPos.y + 2.0,
+        z: activeSoldier.worldPos.z,
+      },
+      text: `★ ${emoteItem?.name || 'Salute!'} ★`,
+      color: '#38BDF8',
+      createdAt: Date.now(),
+    };
+
+    set((s) => ({
+      floatingTexts: [...s.floatingTexts.slice(-10), floatText],
+      bannerMessage: `${activeSoldier.name} performs: ${emoteItem?.name || 'Emote'}!`,
+      soldiers: s.soldiers.map((soldier) =>
+        soldier.id === activeSoldier.id
+          ? { ...soldier, animState: anim, animTimer: 3.0 }
+          : soldier,
+      ),
+    }));
+
+    setTimeout(() => {
+      useGameStore.setState((s) => ({
+        soldiers: s.soldiers.map((soldier) =>
+          soldier.id === activeSoldier.id && soldier.animState === anim
+            ? { ...soldier, animState: 'idle' }
+            : soldier,
+        ),
+      }));
+    }, 3000);
+  },
+
+  buyOrEquipSkin: (skinId, category, price, requiredXp = 0) => {
     const { profile, isAuthenticated } = get();
-    const isUnlocked = profile.unlockedSkins.includes(skinId);
-    if (!isUnlocked && profile.coins < price) return;
+
+    // Check if unlocked in appropriate category list
+    let isUnlocked = false;
+    if (category === 'outfit') {
+      isUnlocked = (profile.unlockedOutfits || ['skin_standard']).includes(skinId);
+    } else if (category === 'emote') {
+      isUnlocked = (profile.unlockedEmotes || ['emote_military_salute']).includes(skinId);
+    } else {
+      isUnlocked = profile.unlockedSkins.includes(skinId);
+    }
+
+    // Check unlock eligibility: can unlock if reached XP requirement or has sufficient coins
+    const hasMetXp = profile.xp >= requiredXp;
+    if (!isUnlocked) {
+      if (!hasMetXp && profile.coins < price) return;
+      if (price > 0 && profile.coins < price && !hasMetXp) return;
+    }
 
     soundManager.play('pickup');
-    const unlockedSkins = isUnlocked
-      ? profile.unlockedSkins
-      : [...profile.unlockedSkins, skinId].slice(0, 20);
-    const coins = isUnlocked ? profile.coins : profile.coins - price;
+
+    const coins = isUnlocked
+      ? profile.coins
+      : hasMetXp && price === 0
+        ? profile.coins
+        : Math.max(0, profile.coins - price);
 
     const nextProfile: PlayerProfileData = {
       ...profile,
       coins,
-      unlockedSkins,
+      unlockedSkins:
+        category === 'weapon' || category === 'character'
+          ? isUnlocked
+            ? profile.unlockedSkins
+            : [...profile.unlockedSkins, skinId]
+          : profile.unlockedSkins,
+      unlockedOutfits:
+        category === 'outfit'
+          ? isUnlocked
+            ? profile.unlockedOutfits || ['skin_standard']
+            : [...(profile.unlockedOutfits || ['skin_standard']), skinId]
+          : profile.unlockedOutfits || ['skin_standard'],
+      unlockedEmotes:
+        category === 'emote'
+          ? isUnlocked
+            ? profile.unlockedEmotes || ['emote_military_salute']
+            : [...(profile.unlockedEmotes || ['emote_military_salute']), skinId]
+          : profile.unlockedEmotes || ['emote_military_salute'],
       selectedSkin: category === 'character' ? skinId : profile.selectedSkin,
+      selectedOutfit: category === 'outfit' ? skinId : profile.selectedOutfit || 'skin_standard',
       selectedWeaponSkin: category === 'weapon' ? skinId : profile.selectedWeaponSkin,
+      selectedEmote: category === 'emote' ? skinId : profile.selectedEmote || 'emote_military_salute',
     };
 
     set({ profile: nextProfile });
@@ -591,9 +745,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const playerTeam = options?.playerTeam ?? state.playerTeam;
     const humanTeams = options?.humanTeams ?? [playerTeam];
     const isOnline = options?.isOnline ?? false;
+    const matchTeamCount = options?.matchTeamCount ?? state.matchTeamCount;
+    const isPartnerMode = options?.isPartnerMode ?? state.isPartnerMode;
 
     soundManager.play('click');
-    const initialSoldiers = buildInitialSoldiers(mode, skySquadSize);
+    const initialSoldiers = buildInitialSoldiers(
+      mode,
+      skySquadSize,
+      matchTeamCount,
+      isPartnerMode,
+      playerTeam,
+    );
     const firstTurn: TeamColor = humanTeams.includes(playerTeam) ? playerTeam : 'red';
     const initialZombies: ZombieUnit[] =
       mode === 'zombie'
@@ -645,6 +807,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       screen: 'playing',
       activeModal: 'none',
       gameMode: mode,
+      matchTeamCount,
+      isPartnerMode,
       playerTeam,
       humanTeams,
       isOnlineMatch: isOnline,
@@ -900,7 +1064,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     ) {
       const enemiesOnTile = updatedSoldiers.filter(
         (e) =>
-          e.team !== soldier.team &&
+          !isAlliedTeam(e.team, soldier.team, state.isPartnerMode) &&
           e.state === 'track' &&
           e.trackTileIndex === finalLoc.trackTileIndex,
       );
@@ -909,6 +1073,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         capturedEnemyName = victim.name;
         bonusCaptureRoll = true;
         soundManager.play('impact');
+        soundManager.play('kill_voice');
 
         for (let i = 0; i < updatedSoldiers.length; i++) {
           if (updatedSoldiers[i].id === victim.id) {
@@ -986,7 +1151,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       newFloating.push({
         id: `cap_${Date.now()}`,
         worldPos: { ...finalLoc.worldPos, y: finalLoc.worldPos.y + 1.8 },
-        text: `CAPTURED ${capturedEnemyName}!`,
+        text: `রাগ করলা? (CAPTURED ${capturedEnemyName}!)`,
         color: '#FACC15',
         createdAt: Date.now(),
       });
@@ -1189,6 +1354,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const nextKillFeed = [...state.killFeed];
 
     if (eliminated) {
+      soundManager.play('kill_voice');
       nextTeamScores[shooter.team] = (nextTeamScores[shooter.team] || 0) + 1;
       nextKillFeed.unshift({
         id: `kf_${Date.now()}`,
@@ -1273,7 +1439,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         {
           id: `dmg_${Date.now()}`,
           worldPos: { ...targetPos, y: targetPos.y + 1.55 },
-          text: eliminated ? `ELIMINATED! (-${effectiveDamage})` : `-${effectiveDamage} HP`,
+          text: eliminated ? `রাগ করলা? ELIMINATED! (-${effectiveDamage})` : `-${effectiveDamage} HP`,
           color: eliminated ? '#EF4444' : '#FACC15',
           createdAt: Date.now(),
         },
@@ -1281,7 +1447,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       hitMarkerActive: true,
       screenShake: eliminated ? 0.55 : 0.3,
       bannerMessage: eliminated
-        ? `${shooter.name} eliminated ${target.name} with ${weaponSpec.name}!`
+        ? `${shooter.name} eliminated ${target.name}! "রাগ করলা?"`
         : `${shooter.name} hit ${target.name} for ${effectiveDamage} damage!`,
     });
 
@@ -1354,7 +1520,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       state.soldiers.find((s) => s.id === targetId && s.state !== 'dead') ||
       state.soldiers.find(
         (s) =>
-          s.team !== thrower.team &&
+          !isAlliedTeam(s.team, thrower.team, state.isPartnerMode) &&
           s.state !== 'dead' &&
           s.state !== 'base' &&
           getCellDistance(thrower.targetWorldPos, s.targetWorldPos) <= 4.5,
@@ -1369,6 +1535,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const blastCenter = { ...targetEnemy.targetWorldPos };
     const grenadeDamage = 45;
 
+    let grenadeEliminated = false;
     const nextSoldiers = state.soldiers.map((s) => {
       if (s.id === thrower.id) {
         return {
@@ -1377,11 +1544,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           animTimer: 0.85,
         };
       }
-      if (s.team !== thrower.team && s.state !== 'dead' && s.state !== 'base') {
+      if (!isAlliedTeam(s.team, thrower.team, state.isPartnerMode) && s.state !== 'dead' && s.state !== 'base') {
         const d = getCellDistance(blastCenter, s.targetWorldPos);
         if (d <= 1.8) {
           const nextHp = Math.max(0, s.hp - grenadeDamage);
           if (nextHp === 0) {
+            grenadeEliminated = true;
             if (state.gameMode === 'battle_royale' || state.gameMode === 'survival') {
               return { ...s, hp: 0, state: 'dead' as const, animState: 'death' as SoldierAnimation };
             }
@@ -1403,6 +1571,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
       return s;
     });
+
+    if (grenadeEliminated) {
+      soundManager.play('kill_voice');
+    }
 
     set({
       soldiers: nextSoldiers,
@@ -1427,13 +1599,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         {
           id: `boom_${Date.now()}`,
           worldPos: { ...blastCenter, y: blastCenter.y + 1.7 },
-          text: `BOOM! -${grenadeDamage} HP`,
+          text: grenadeEliminated ? `রাগ করলা? GRENADE KILL! (-${grenadeDamage} HP)` : `BOOM! -${grenadeDamage} HP`,
           color: '#F97316',
           createdAt: Date.now(),
         },
       ],
       screenShake: 0.7,
-      bannerMessage: `${thrower.name}Detonated Frag Grenade on ${targetEnemy.name}!`,
+      bannerMessage: grenadeEliminated
+        ? `${thrower.name} blew up ${targetEnemy.name} with Frag Grenade! "রাগ করলা?"`
+        : `${thrower.name} Detonated Frag Grenade on ${targetEnemy.name}!`,
     });
 
     checkVictoryConditions();
@@ -1819,7 +1993,7 @@ function recomputeCombatTargets(explicitSoldierId?: string) {
     const ids: string[] = [];
 
     for (const enemy of state.soldiers) {
-      if (enemy.team === shooter.team || enemy.state === 'dead' || enemy.state === 'base') continue;
+      if (isAlliedTeam(enemy.team, shooter.team, state.isPartnerMode) || enemy.state === 'dead' || enemy.state === 'base') continue;
       const dist = getCellDistance(shooter.targetWorldPos, enemy.targetWorldPos);
       if (dist <= range && checkLineOfSight(shooter.targetWorldPos, enemy.targetWorldPos).clear) {
         ids.push(enemy.id);
@@ -1894,7 +2068,9 @@ function checkVictoryConditions(forceTimeUp = false) {
 
   if (!winningTeam) return;
 
-  const isPlayerWinner = winningTeam === state.playerTeam;
+  const isPlayerWinner =
+    winningTeam === state.playerTeam ||
+    (state.isPartnerMode && PARTNER_ALLIES[state.playerTeam] === winningTeam);
   soundManager.play(isPlayerWinner ? 'victory' : 'defeat');
 
   const playerSoldiers = state.soldiers.filter((s) => s.team === state.playerTeam);

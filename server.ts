@@ -109,7 +109,8 @@ async function startServer() {
           const mode = String(msg.mode || 'classic');
           const preferredTeam: TeamColor = TEAM_ORDER.includes(msg.team) ? msg.team : 'red';
 
-          const code = generateRoomCode();
+          const rawCustom = msg.customCode || msg.code;
+          const code = rawCustom ? String(rawCustom).toUpperCase().trim() : generateRoomCode();
           const newRoom: GameRoom = {
             code,
             hostId: playerId,
@@ -153,10 +154,16 @@ async function startServer() {
           let targetRoom: GameRoom | undefined;
 
           if (type === 'room:join') {
-            const code = String(msg.code || '').toUpperCase().trim();
-            targetRoom = rooms.get(code);
+            const rawCode = String(msg.code || '').toUpperCase().trim();
+            targetRoom =
+              rooms.get(rawCode) ||
+              (!rawCode.startsWith('WIFI-') ? rooms.get(`WIFI-${rawCode}`) : undefined) ||
+              (!rawCode.startsWith('WZ-') ? rooms.get(`WZ-${rawCode}`) : undefined) ||
+              (rawCode.startsWith('WIFI-') ? rooms.get(rawCode.replace('WIFI-', '')) : undefined) ||
+              (rawCode.startsWith('WZ-') ? rooms.get(rawCode.replace('WZ-', '')) : undefined);
+
             if (!targetRoom) {
-              ws.send(JSON.stringify({ type: 'room:error', message: `Room ${code} not found.` }));
+              ws.send(JSON.stringify({ type: 'room:error', message: `Room PIN ${rawCode} not found on this local WiFi host.` }));
               return;
             }
           } else {

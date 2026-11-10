@@ -16,6 +16,7 @@ import {
   TEAM_ORDER,
   TILE_SIZE,
 } from '../constants/boardData';
+import { TeamColor } from '../types/game';
 import { useGameStore } from '../store/useGameStore';
 import { createSoldierRig, SoldierRig, updateSoldierRig } from './SoldierModel';
 

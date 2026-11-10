@@ -10,6 +10,8 @@ export type GameMode =
 
 export type SkySquadSize = 'solo' | 'duo' | 'squad';
 
+export type MatchTeamCount = 2 | 3 | 4;
+
 export type AIDifficulty = 'easy' | 'normal' | 'hard' | 'expert';
 
 export type TurnPhase = 'DICE_PHASE' | 'MOVE_PHASE' | 'ACTION_PHASE' | 'TURN_END';
@@ -174,10 +176,12 @@ export interface DailyMission {
 export interface SkinItem {
   id: string;
   name: string;
-  category: 'character' | 'weapon';
+  category: 'character' | 'outfit' | 'weapon' | 'emote';
   priceCoins: number;
+  requiredXp?: number;
   accentHex: string;
   description: string;
+  animation?: SoldierAnimation;
 }
 
 export interface PlayerProfileData {
@@ -192,8 +196,12 @@ export interface PlayerProfileData {
   matchesPlayed: number;
   selectedTeam: TeamColor;
   selectedSkin: string;
+  selectedOutfit?: string;
   selectedWeaponSkin: string;
+  selectedEmote?: string;
   unlockedSkins: string[];
+  unlockedOutfits?: string[];
+  unlockedEmotes?: string[];
   achievements: string[];
 }
 

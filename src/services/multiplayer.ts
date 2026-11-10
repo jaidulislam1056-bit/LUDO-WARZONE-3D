@@ -92,7 +92,13 @@ class MultiplayerClient {
     }
   }
 
-  public async createRoom(playerName: string, mode: string, team: TeamColor, isPublic: boolean) {
+  public async createRoom(
+    playerName: string,
+    mode: string,
+    team: TeamColor,
+    isPublic: boolean,
+    customCode?: string,
+  ) {
     const ok = await this.connect();
     if (!ok) return false;
     this.send({
@@ -101,6 +107,7 @@ class MultiplayerClient {
       mode,
       team,
       isPublic,
+      customCode,
     });
     return true;
   }
